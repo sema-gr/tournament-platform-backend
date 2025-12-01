@@ -1,0 +1,21 @@
+model User {
+    id       String @id @default(uuid())
+    email    String @unique
+    password String
+    name     String
+    role     Role   @default(USER)
+
+    teamsOwned Team[] @relation("TeamOwners")
+    teams      Team[] @relation("TeamPlayers")
+
+    tournaments Tournament[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+enum Role {
+    ADMIN
+    ORGANIZER
+    USER
+}
