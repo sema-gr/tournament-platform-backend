@@ -1,26 +1,26 @@
-model Match {
-    id           String     @id @default(uuid())
-    tournamentId String
-    tournament   Tournament @relation(fields: [tournamentId], references: [id])
+// model Match {
+//     id           String     @id @default(uuid())
+//     tournamentId String
+//     tournament   Tournament @relation(fields: [tournamentId], references: [id])
 
-    teamAId String?
-    teamBId String?
+//     teamAId String?
+//     teamBId String?
 
-    teamA Team? @relation("MatchTeamA", fields: [teamAId], references: [id])
-    teamB Team? @relation("MatchTeamB", fields: [teamBId], references: [id])
+//     teamA Team? @relation("MatchTeamA", fields: [teamAId], references: [id])
+//     teamB Team? @relation("MatchTeamB", fields: [teamBId], references: [id])
 
-    scoreA Int?
-    scoreB Int?
+//     scoreA Int?
+//     scoreB Int?
 
-    status MatchStatus @default(PENDING)
-    round  Int?
+//     status MatchStatus @default(PENDING)
+//     round  Int?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-}
+//     createdAt DateTime @default(now())
+//     updatedAt DateTime @updatedAt
+// }
 
-enum MatchStatus {
-    PENDING
-    ONGOING
-    FINISHED
-}
+// enum MatchStatus {
+//     PENDING
+//     ONGOING
+//     FINISHED
+// }

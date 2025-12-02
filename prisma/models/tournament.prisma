@@ -1,30 +1,30 @@
-model Tournament {
-    id          String  @id @default(uuid())
-    title       String
-    description String?
-    organizerId String
+// model Tournament {
+//     id          String  @id @default(uuid())
+//     title       String
+//     description String?
+//     organizerId String
 
-    organizer User @relation(fields: [organizerId], references: [id])
+//     organizer User @relation(fields: [organizerId], references: [id])
 
-    status    TournamentStatus @default(DRAFT)
-    stageType StageType        @default(SINGLE_ELIMINATION)
+//     status    TournamentStatus @default(DRAFT)
+//     stageType StageType        @default(SINGLE_ELIMINATION)
 
-    registrations Registration[]
-    matches       Match[]
+//     registrations Registration[]
+//     matches       Match[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-}
+//     createdAt DateTime @default(now())
+//     updatedAt DateTime @updatedAt
+// }
 
-enum TournamentStatus {
-    DRAFT
-    REGISTRATION
-    ACTIVE
-    FINISHED
-}
+// enum TournamentStatus {
+//     DRAFT
+//     REGISTRATION
+//     ACTIVE
+//     FINISHED
+// }
 
-enum StageType {
-    SINGLE_ELIMINATION
-    DOUBLE_ELIMINATION
-    GROUP_STAGE
-}
+// enum StageType {
+//     SINGLE_ELIMINATION
+//     DOUBLE_ELIMINATION
+//     GROUP_STAGE
+// }

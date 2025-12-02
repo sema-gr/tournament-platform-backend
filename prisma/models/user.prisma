@@ -1,21 +1,21 @@
-model User {
-    id       String @id @default(uuid())
-    email    String @unique
-    password String
-    name     String
-    role     Role   @default(USER)
+// model User {
+//     id       String @id @default(uuid())
+//     email    String @unique
+//     password String
+//     name     String
+//     role     Role   @default(USER)
 
-    teamsOwned Team[] @relation("TeamOwners")
-    teams      Team[] @relation("TeamPlayers")
+//     teamsOwned Team[] @relation("TeamOwners")
+//     teams      Team[] @relation("TeamPlayers")
 
-    tournaments Tournament[]
+//     tournaments Tournament[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-}
+//     createdAt DateTime @default(now())
+//     updatedAt DateTime @updatedAt
+// }
 
-enum Role {
-    ADMIN
-    ORGANIZER
-    USER
-}
+// enum Role {
+//     ADMIN
+//     ORGANIZER
+//     USER
+// }

@@ -1,17 +1,17 @@
-model Team {
-    id   String @id @default(uuid())
-    name String
+// model Team {
+//     id   String @id @default(uuid())
+//     name String
 
-    ownerId String
-    owner   User   @relation("TeamOwners", fields: [ownerId], references: [id])
+//     ownerId String
+//     owner   User   @relation("TeamOwners", fields: [ownerId], references: [id])
 
-    players User[] @relation("TeamPlayers")
+//     players User[] @relation("TeamPlayers")
 
-    registrations Registration[]
+//     registrations Registration[]
 
-    matchesAsTeamA Match[] @relation("MatchTeamA")
-    matchesAsTeamB Match[] @relation("MatchTeamB")
+//     matchesAsTeamA Match[] @relation("MatchTeamA")
+//     matchesAsTeamB Match[] @relation("MatchTeamB")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-}
+//     createdAt DateTime @default(now())
+//     updatedAt DateTime @updatedAt
+// }
