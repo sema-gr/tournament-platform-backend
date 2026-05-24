@@ -14,7 +14,7 @@ async function bootstrap() {
     });
 
     app.enableCors({
-        origin: "http://localhost:3000",
+        origin: ["http://localhost:3000", "https://my-next-app-nu-gray.vercel.app/"],
         credentials: true,
     });
 
