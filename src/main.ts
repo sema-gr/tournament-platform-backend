@@ -1,20 +1,17 @@
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { ValidationPipe } from "@nestjs/common";
-import * as fs from "fs";
 
 async function bootstrap() {
-    const httpsOptions = {
-        key: fs.readFileSync("./ssl/localhost-key.pem"),
-        cert: fs.readFileSync("./ssl/localhost.pem"),
-    };
+    const app = await NestFactory.create(AppModule);
 
-    const app = await NestFactory.create(AppModule, {
-        httpsOptions,
-    });
-
+    // Бронебійне налаштування CORS
     app.enableCors({
-        origin: ["http://localhost:3000", "https://my-next-app-nu-gray.vercel.app/"],
+        origin: [
+            "http://localhost:3000", 
+            "https://my-next-app-nu-gray.vercel.app"
+        ],
+        methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
         credentials: true,
     });
 
@@ -24,8 +21,9 @@ async function bootstrap() {
         }),
     );
 
-    await app.listen(process.env.PORT ?? 3001);
+    const port = process.env.PORT ?? 3001;
+    await app.listen(port);
 
-    console.log(`Server is running on https://localhost:${process.env.PORT ?? 3001}`);
+    console.log(`Server is running on port ${port}`);
 }
 bootstrap();
