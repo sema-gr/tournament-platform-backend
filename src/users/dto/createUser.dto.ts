@@ -1,8 +1,26 @@
 import { Role } from "@prisma/client";
+import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from "class-validator";
 
-export interface CreateUserDto {
-    email: string;
-    password: string;
-    name: string;
+export class CreateUserDto {
+    @IsEmail()
+    email!: string;
+
+    @IsString()
+    @MinLength(3)
+    username!: string;
+
+    @IsString()
+    @MinLength(6)
+    password!: string;
+
+    @IsString()
+    name!: string;
+
+    @IsOptional()
+    @IsEnum(Role)
     role?: Role;
+
+    @IsOptional()
+    @IsString()
+    organizationName?: string;
 }

@@ -7,56 +7,125 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id       String @id @default(uuid())
-  email    String @unique
-  password String
-  name     String
-  role     Role   @default(USER)
-
-  teamsOwned Team[] @relation("TeamOwners")
-  teams      Team[] @relation("TeamPlayers")
-
-  tournaments Tournament[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 enum Role {
   ADMIN
   ORGANIZER
-  USER
+  PLAYER
 }
 
-model Team {
-  id   String @id @default(uuid())
-  name String
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
 
-  ownerId String
-  owner   User   @relation("TeamOwners", fields: [ownerId], references: [id])
+model User {
+  id                  String            @id @default(uuid())
+  email               String            @unique
+  username            String            @unique
+  password            String
+  name                String
+  role                Role              @default(PLAYER)
+  organizationName    String?
+  isApprovedOrganizer Boolean           @default(false)
+  organizerStatus     ApplicationStatus @default(PENDING)
 
-  players User[] @relation("TeamPlayers")
+  teams      TeamMember[]
+  ownedTeams Team[]       @relation("TeamOwner")
 
-  registrations Registration[]
+  tournaments Tournament[] @relation("OrganizerTournaments")
+  stats       PlayerStats?
 
-  matchesAsTeamA Match[] @relation("MatchTeamA")
-  matchesAsTeamB Match[] @relation("MatchTeamB")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  teamJoinRequests TeamJoinRequest[]
 
+  notifications Notification[]
+
+  teamInvitations TeamInvitation[]
+}
+
+model TeamJoinRequest {
+  id        String            @id @default(uuid())
+  userId    String
+  teamId    String
+  status    ApplicationStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+}
+
+model TeamInvitation {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  status    String   @default("PENDING")
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model TeamMember {
+  id     String @id @default(uuid())
+  userId String
+  teamId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+}
+
+model PlayerStats {
+  id          String @id @default(uuid())
+  userId      String @unique
+  user        User   @relation(fields: [userId], references: [id])
+  gamesPlayed Int    @default(0)
+  wins        Int    @default(0)
+  losses      Int    @default(0)
+}
+
+model Category {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  slug        String       @unique
+  minPlayers  Int          @default(1)
+  maxPlayers  Int          @default(1)
+  tournaments Tournament[]
+}
+
+enum TournamentStatus {
+  PLANNED
+  REGISTRATION
+  ACTIVE
+  FINISHED
+}
+
+enum TournamentFormat {
+  SINGLE_ELIMINATION
+  ROUND_ROBIN
 }
 
 model Tournament {
-  id          String  @id @default(uuid())
+  id          String           @id @default(uuid())
   title       String
   description String?
+  format      TournamentFormat @default(SINGLE_ELIMINATION)
+  status      TournamentStatus @default(PLANNED)
+  maxTeams    Int
+  startDate   DateTime
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
   organizerId String
-
-  organizer User @relation(fields: [organizerId], references: [id])
-
-  status    TournamentStatus @default(DRAFT)
-  stageType StageType        @default(SINGLE_ELIMINATION)
+  organizer   User   @relation("OrganizerTournaments", fields: [organizerId], references: [id])
 
   registrations Registration[]
   matches       Match[]
@@ -65,29 +134,40 @@ model Tournament {
   updatedAt DateTime @updatedAt
 }
 
-enum TournamentStatus {
-  DRAFT
-  REGISTRATION
-  ACTIVE
-  FINISHED
-}
+model Team {
+  id   String @id @default(uuid())
+  name String @unique
 
-enum StageType {
-  SINGLE_ELIMINATION
-  DOUBLE_ELIMINATION
-  GROUP_STAGE
+  isPrivate Boolean @default(false)
+
+  ownerId String
+  owner   User   @relation("TeamOwner", fields: [ownerId], references: [id])
+
+  members TeamMember[]
+
+  registrations Registration[]
+  matchesA      Match[]        @relation("MatchTeamA")
+  matchesB      Match[]        @relation("MatchTeamB")
+  wonMatches    Match[]        @relation("MatchWinner")
+
+  createdAt        DateTime          @default(now())
+  teamJoinRequests TeamJoinRequest[]
+
+  teamInvitations TeamInvitation[]
 }
 
 model Registration {
-  id String @id @default(uuid())
-
+  id           String            @id @default(uuid())
+  status       ApplicationStatus @default(PENDING)
   tournamentId String
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  teamId       String
 
-  teamId String
-  team   Team   @relation(fields: [teamId], references: [id])
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team       Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+
+  @@unique([tournamentId, teamId])
 }
 
 model Match {
@@ -97,22 +177,50 @@ model Match {
 
   teamAId String?
   teamBId String?
+  teamA   Team?   @relation("MatchTeamA", fields: [teamAId], references: [id])
+  teamB   Team?   @relation("MatchTeamB", fields: [teamBId], references: [id])
 
-  teamA Team? @relation("MatchTeamA", fields: [teamAId], references: [id])
-  teamB Team? @relation("MatchTeamB", fields: [teamBId], references: [id])
+  scoreA   Int     @default(0)
+  scoreB   Int     @default(0)
+  winnerId String?
+  winner   Team?   @relation("MatchWinner", fields: [winnerId], references: [id])
 
-  scoreA Int?
-  scoreB Int?
+  nextMatchId     String?
+  nextMatch       Match?  @relation("NextMatch", fields: [nextMatchId], references: [id])
+  previousMatches Match[] @relation("NextMatch")
 
-  status MatchStatus @default(PENDING)
+  status MatchStatus @default(SCHEDULED)
   round  Int?
+  date   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 enum MatchStatus {
-  PENDING
+  SCHEDULED
   ONGOING
   FINISHED
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  TEAM_JOIN_REQUEST
+  TOURNAMENT_UPDATE
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
