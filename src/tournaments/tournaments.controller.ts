@@ -14,8 +14,8 @@ import {
 import { TournamentsService } from "./tournaments.service";
 import { CreateTournamentDto } from "./dto/create-tournament.dto";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
-import { TournamentStatus } from "@prisma/client";
 import { RequestWithUser } from "src/users/types/user";
+import { GetTournamentsDto } from "./dto/get-tournaments.dto";
 
 @Controller("tournaments")
 export class TournamentsController {
@@ -28,13 +28,8 @@ export class TournamentsController {
     }
 
     @Get()
-    findAll(
-        @Query("categoryId") categoryId?: string,
-        @Query("status") status?: TournamentStatus,
-        @Query("search") search?: string,
-        @Query("organizerId") organizerId?: string,
-    ) {
-        return this.tournamentsService.findAll({ categoryId, status, search, organizerId });
+    findAll(@Query() query: GetTournamentsDto) {
+        return this.tournamentsService.findAll(query);
     }
 
     @Get(":id")
@@ -73,22 +68,17 @@ export class TournamentsController {
     }
 
     @UseGuards(JwtAuthGuard)
-    @Delete(':id/leave/:teamId')
+    @Delete(":id/leave/:teamId")
     async leaveTournament(
         @Req() req: RequestWithUser,
-        @Param('id') tournamentId: string,
-        @Param('teamId') teamId: string,
+        @Param("id") tournamentId: string,
+        @Param("teamId") teamId: string,
     ) {
         return this.tournamentsService.leaveTournament(req.user.id, tournamentId, teamId);
     }
     @UseGuards(JwtAuthGuard)
-    @Delete(':id')
-    async deleteTournament(
-        @Req() req: RequestWithUser,
-        @Param('id') tournamentId: string
-    ) {
+    @Delete(":id")
+    async deleteTournament(@Req() req: RequestWithUser, @Param("id") tournamentId: string) {
         return this.tournamentsService.deleteTournament(req.user.id, tournamentId);
     }
-
-    
 }

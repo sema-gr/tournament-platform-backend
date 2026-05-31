@@ -1,7 +1,8 @@
-import { Controller, Post, Param, UseGuards, Req, Body, Patch, Get } from "@nestjs/common";
+import { Controller, Post, Param, UseGuards, Req, Body, Patch, Get, Query } from "@nestjs/common";
 import { MatchesService } from "./matches.service";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { RequestWithUser } from "src/users/types/user";
+import { GetMatchesDto } from "./dto/get-matches.dto";
 
 @Controller("matches")
 export class MatchesController {
@@ -35,7 +36,7 @@ export class MatchesController {
     }
 
     @Get()
-    async getAllMatches() {
-        return this.matchesService.getAllMatches();
+    async getAllMatches(@Query() query: GetMatchesDto) {
+        return this.matchesService.getAllMatches(query);
     }
 }

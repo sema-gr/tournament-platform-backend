@@ -30,6 +30,9 @@ model User {
   isApprovedOrganizer Boolean           @default(false)
   organizerStatus     ApplicationStatus @default(PENDING)
 
+  isEmailVerified   Boolean @default(false)
+  verificationToken String?
+
   teams      TeamMember[]
   ownedTeams Team[]       @relation("TeamOwner")
 
@@ -43,6 +46,17 @@ model User {
   notifications Notification[]
 
   teamInvitations TeamInvitation[]
+}
+
+model PendingUser {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  name             String
+  password         String
+  role             Role     @default(PLAYER)
+  organizationName String?
+  code             String
+  createdAt        DateTime @default(now())
 }
 
 model TeamJoinRequest {

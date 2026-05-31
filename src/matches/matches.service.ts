@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { Match, MatchStatus } from "@prisma/client";
+import { GetMatchesDto } from "./dto/get-matches.dto";
 
 @Injectable()
 export class MatchesService {
@@ -183,20 +184,66 @@ export class MatchesService {
         });
     }
 
-    async getAllMatches() {
-        return this.prisma.match.findMany({
-            include: {
-                tournament: {
-                    select: { id: true, title: true },
+    async getAllMatches(query: GetMatchesDto) {
+        const page = query.page || 1;
+        const limit = query.limit || 9;
+        const skip = (page - 1) * limit;
+
+        const where: any = {};
+
+        if (query.status) {
+            where.status = query.status;
+        }
+
+        if (query.dateFrom || query.dateTo) {
+            where.date = {};
+
+            if (query.dateFrom) {
+                where.date.gte = new Date(query.dateFrom);
+            }
+
+            if (query.dateTo) {
+                const endDate = new Date(query.dateTo);
+                endDate.setUTCHours(23, 59, 59, 999);
+                where.date.lte = endDate;
+            }
+        }
+
+        if (query.teamName) {
+            where.OR = [
+                {
+                    teamA: { name: { contains: query.teamName, mode: "insensitive" } },
                 },
-                teamA: {
-                    select: { id: true, name: true },
+                {
+                    teamB: { name: { contains: query.teamName, mode: "insensitive" } },
                 },
-                teamB: {
-                    select: { id: true, name: true },
+            ];
+        }
+
+        const [total, data] = await this.prisma.$transaction([
+            this.prisma.match.count({ where }),
+            this.prisma.match.findMany({
+                where,
+                skip,
+                take: limit,
+                include: {
+                    tournament: {
+                        select: { id: true, title: true },
+                    },
+                    teamA: {
+                        select: { id: true, name: true },
+                    },
+                    teamB: {
+                        select: { id: true, name: true },
+                    },
                 },
-            },
-            orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-        });
+                orderBy: [{ status: "asc" }, { date: "asc" }, { createdAt: "desc" }],
+            }),
+        ]);
+
+        return {
+            total,
+            data,
+        };
     }
 }

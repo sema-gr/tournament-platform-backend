@@ -7,4 +7,6 @@ export type DraftMatch = {
     teamBId: string | null;
     winnerId: string | null;
     nextMatchId: string | null;
+    scoreA?: number; 
+    scoreB?: number; 
 };

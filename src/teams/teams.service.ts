@@ -8,6 +8,7 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateTeamDto } from "./dto/create-team.dto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { GetTeamsDto } from "./dto/get-teams.dto";
 
 @Injectable()
 export class TeamsService {
@@ -15,6 +16,25 @@ export class TeamsService {
         private prisma: PrismaService,
         private eventEmitter: EventEmitter2,
     ) {}
+
+    private async checkRosterLock(teamId: string) {
+        const activeTournament = await this.prisma.registration.findFirst({
+            where: {
+                teamId: teamId,
+                status: "APPROVED",
+                tournament: { status: "ACTIVE" },
+            },
+            include: {
+                tournament: { select: { title: true } },
+            },
+        });
+
+        if (activeTournament) {
+            throw new BadRequestException(
+                `Склад команди заблоковано! Команда бере участь в активному турнірі "${activeTournament.tournament.title}".`,
+            );
+        }
+    }
 
     async createTeam(userId: string, dto: CreateTeamDto) {
         const alreadyOwner = await this.prisma.team.findFirst({
@@ -62,23 +82,62 @@ export class TeamsService {
         return team;
     }
 
-    async getTeams() {
-        const teams = await this.prisma.team.findMany({
-            include: {
-                owner: { select: { id: true, name: true, email: true } },
-                members: {
-                    include: {
-                        user: { select: { id: true, name: true, username: true, stats: true } },
-                    },
-                },
-                matchesA: { include: { tournament: { select: { title: true } } } },
-                matchesB: { include: { tournament: { select: { title: true } } } },
-                _count: true,
-            },
-        });
+    async getTeams(query: GetTeamsDto) {
+        const page = query.page || 1;
+        const limit = query.limit || 9;
+        const skip = (page - 1) * limit;
 
-        if (!teams) throw new NotFoundException("Команди не знайдені");
-        return teams;
+        const where: any = {};
+
+        if (query.search) {
+            where.name = { contains: query.search, mode: "insensitive" };
+        }
+
+        if (query.ownerName) {
+            where.owner = {
+                name: { contains: query.ownerName, mode: "insensitive" },
+            };
+        }
+
+        let orderBy: any = { createdAt: "desc" };
+
+        if (query.sortBy) {
+            if (query.sortBy === "members_desc") {
+                orderBy = { members: { _count: "desc" } };
+            } else if (query.sortBy === "members_asc") {
+                orderBy = { members: { _count: "asc" } };
+            } else if (query.sortBy === "wins_desc") {
+                orderBy = { wonMatches: { _count: "desc" } };
+            } else if (query.sortBy === "wins_asc") {
+                orderBy = { wonMatches: { _count: "asc" } };
+            }
+        }
+
+        const [total, data] = await this.prisma.$transaction([
+            this.prisma.team.count({ where }),
+            this.prisma.team.findMany({
+                where,
+                skip,
+                take: limit,
+                include: {
+                    owner: { select: { id: true, name: true, email: true } },
+                    members: {
+                        include: {
+                            user: { select: { id: true, name: true, username: true, stats: true } },
+                        },
+                    },
+                    matchesA: { include: { tournament: { select: { title: true } } } },
+                    matchesB: { include: { tournament: { select: { title: true } } } },
+                    _count: true,
+                },
+                orderBy,
+            }),
+        ]);
+
+        return {
+            total,
+            data,
+        };
     }
 
     async getTeamsByUserId(userId: string) {
@@ -146,6 +205,10 @@ export class TeamsService {
         if (invite.userId !== userId) throw new ForbiddenException("Це не ваше запрошення");
         if (invite.status !== "PENDING") throw new BadRequestException("Запрошення вже оброблено");
 
+        if (status === "ACCEPTED") {
+            await this.checkRosterLock(invite.teamId);
+        }
+
         await this.prisma.teamInvitation.update({
             where: { id: invitationId },
             data: { status },
@@ -196,9 +259,9 @@ export class TeamsService {
             if (existingRequest.status === "PENDING") {
                 throw new ConflictException("Ваш запит вже розглядається капітаном");
             }
-            
-            await this.prisma.teamJoinRequest.delete({ 
-                where: { id: existingRequest.id } 
+
+            await this.prisma.teamJoinRequest.delete({
+                where: { id: existingRequest.id },
             });
         }
 
@@ -251,6 +314,10 @@ export class TeamsService {
             throw new ForbiddenException("Тільки капітан може керувати запитами");
         }
 
+        if (status === "APPROVED") {
+            await this.checkRosterLock(request.teamId);
+        }
+
         const updatedRequest = await this.prisma.teamJoinRequest.update({
             where: { id: requestId },
             data: { status },
@@ -298,6 +365,8 @@ export class TeamsService {
 
         const isMember = team.members.some(m => m.userId === userId);
         if (!isMember) throw new BadRequestException("Ви не є учасником цієї команди");
+
+        await this.checkRosterLock(teamId);
 
         await this.prisma.teamMember.deleteMany({
             where: {

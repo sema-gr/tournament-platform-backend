@@ -9,11 +9,13 @@ import {
     Patch,
     BadRequestException,
     Delete,
+    Query,
 } from "@nestjs/common";
 import { TeamsService } from "./teams.service";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CreateTeamDto } from "./dto/create-team.dto";
 import { RequestWithUser } from "src/users/types/user";
+import { GetTeamsDto } from "./dto/get-teams.dto";
 
 @Controller("teams")
 export class TeamsController {
@@ -37,8 +39,8 @@ export class TeamsController {
     }
 
     @Get()
-    findMany() {
-        return this.teamsService.getTeams();
+    findMany(@Query() query: GetTeamsDto) {
+        return this.teamsService.getTeams(query);
     }
 
     @UseGuards(JwtAuthGuard)

@@ -11,6 +11,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { randomUUID } from "crypto";
 import { DraftMatch } from "./types/type";
 import { UsersService } from "src/users/users.service";
+import { GetTournamentsDto } from "./dto/get-tournaments.dto";
 
 @Injectable()
 export class TournamentsService {
@@ -44,25 +45,45 @@ export class TournamentsService {
         });
     }
 
-    async findAll(query: {
-        categoryId?: string;
-        status?: TournamentStatus;
-        search?: string;
-        organizerId?: string;
-    }) {
-        return this.prisma.tournament.findMany({
-            where: {
-                categoryId: query.categoryId,
-                status: query.status,
-                title: query.search ? { contains: query.search, mode: "insensitive" } : undefined,
-                organizerId: query.organizerId,
-            },
-            include: {
-                category: true,
-                _count: { select: { registrations: true } },
-            },
-            orderBy: { createdAt: "desc" },
-        });
+    async findAll(query: GetTournamentsDto) {
+        const page = query.page || 1;
+        const limit = query.limit || 9;
+        const skip = (page - 1) * limit;
+
+        const where: any = {};
+
+        if (query.categoryId) where.categoryId = query.categoryId;
+        if (query.status) where.status = query.status;
+        if (query.maxTeams) where.maxTeams = query.maxTeams;
+
+        if (query.search) {
+            where.title = { contains: query.search, mode: "insensitive" };
+        }
+
+        if (query.dateFrom || query.dateTo) {
+            where.startDate = {};
+            if (query.dateFrom) where.startDate.gte = new Date(query.dateFrom);
+            if (query.dateTo) where.startDate.lte = new Date(query.dateTo);
+        }
+
+        const [total, data] = await this.prisma.$transaction([
+            this.prisma.tournament.count({ where }),
+            this.prisma.tournament.findMany({
+                where,
+                skip,
+                take: limit,
+                include: {
+                    category: true,
+                    _count: { select: { registrations: true } },
+                },
+                orderBy: { createdAt: "desc" },
+            }),
+        ]);
+
+        return {
+            total,
+            data,
+        };
     }
 
     async getById(id: string) {
@@ -222,6 +243,8 @@ export class TournamentsService {
                     teamBId: null,
                     winnerId: null,
                     nextMatchId: null,
+                    scoreA: 0,
+                    scoreB: 0,
                 });
             }
             matchesByRound.push(roundMatches);
@@ -253,6 +276,7 @@ export class TournamentsService {
                 match.teamAId = autoWinnerId;
                 match.winnerId = autoWinnerId;
                 match.status = "FINISHED";
+                match.scoreA = 1;
             }
         }
 

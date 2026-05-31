@@ -5,7 +5,6 @@ import { ValidationPipe } from "@nestjs/common";
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
 
-    // Бронебійне налаштування CORS
     app.enableCors({
         origin: [
             "http://localhost:3000", 

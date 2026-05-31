@@ -54,12 +54,24 @@ export class UsersService {
         return this.prisma.user.findMany();
     }
 
-    async findOne(id: string): Promise<User | null> {
+    async findOne(id: string) {
         const user = await this.prisma.user.findUnique({
             where: { id },
             include: {
                 stats: true,
                 ownedTeams: true,
+                tournaments: {
+                    include: {
+                        category: true,
+                        _count: {
+                            select: { registrations: true },
+                        },
+                    },
+                    orderBy: { createdAt: "desc" },
+                },
+                _count: {
+                    select: { tournaments: true },
+                },
             },
         });
         return user;
