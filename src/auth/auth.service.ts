@@ -28,6 +28,60 @@ export class AuthService {
         });
     }
 
+    private async sendVerificationEmail(toEmail: string, toName: string, verificationCode: string) {
+        const subject = "Код підтвердження реєстрації SportTeam";
+        const html = `
+                    <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                        <h2 style="text-align: center; color: #0f172a;">SportTeam Platform</h2>
+                        <p style="color: #475569; font-size: 16px;">Вітаємо, ${toName}! Ваш код для підтвердження реєстрації:</p>
+                        <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; padding: 15px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a; margin: 20px 0; border-radius: 8px;">
+                            ${verificationCode}
+                        </div>
+                        <p style="color: #94a3b8; font-size: 12px; text-align: center;">Код дійсний для поточної сесії реєстрації.</p>
+                    </div>
+                `;
+
+        const brevoApiKey = process.env.BREVO_API_KEY?.trim();
+        const senderEmail =
+            process.env.BREVO_SENDER_EMAIL?.trim() ||
+            process.env.SMTP_USER?.trim() ||
+            "sportteam.platform@gmail.com";
+
+        if (brevoApiKey) {
+            const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+                method: "POST",
+                headers: {
+                    accept: "application/json",
+                    "api-key": brevoApiKey,
+                    "content-type": "application/json",
+                },
+                body: JSON.stringify({
+                    sender: {
+                        name: "SportTeam",
+                        email: senderEmail,
+                    },
+                    to: [{ email: toEmail, name: toName }],
+                    subject,
+                    htmlContent: html,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                throw new Error(`Brevo API error (${response.status}): ${errorBody}`);
+            }
+
+            return;
+        }
+
+        await this.transporter.sendMail({
+            from: `"SportTeam Platform" <${senderEmail}>`,
+            to: toEmail,
+            subject,
+            html,
+        });
+    }
+
     async register(dto: RegisterDto) {
         const existingUser = await this.prisma.user.findUnique({
             where: { email: dto.email },
@@ -63,21 +117,7 @@ export class AuthService {
         });
 
         try {
-            await this.transporter.sendMail({
-                from: `"SportTeam Platform" <${process.env.SMTP_USER}>`,
-                to: dto.email,
-                subject: "Код підтвердження реєстрації SportTeam",
-                html: `
-                    <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
-                        <h2 style="text-align: center; color: #0f172a;">SportTeam Platform</h2>
-                        <p style="color: #475569; font-size: 16px;">Вітаємо, ${dto.name}! Ваш код для підтвердження реєстрації:</p>
-                        <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; padding: 15px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a; margin: 20px 0; border-radius: 8px;">
-                            ${verificationCode}
-                        </div>
-                        <p style="color: #94a3b8; font-size: 12px; text-align: center;">Код дійсний для поточної сесії реєстрації.</p>
-                    </div>
-                `,
-            });
+            await this.sendVerificationEmail(dto.email, dto.name, verificationCode);
         } catch (error) {
             console.error("Помилка відправки листа:", error);
             throw new BadRequestException("Не вдалося відправити лист на вказану пошту");
