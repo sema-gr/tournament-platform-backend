@@ -14,6 +14,8 @@ import {
 } from "@nestjs/common";
 import { UsersService } from "./users.service";
 import { CreateUserDto } from "./dto/createUser.dto";
+import { GetUserCareerDto } from "./dto/get-user-career.dto";
+import { PaginationQueryDto } from "./dto/pagination-query.dto";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { User } from "./types";
 import { PrismaService } from "src/prisma/prisma.service";
@@ -38,8 +40,8 @@ export class UsersController {
 
     @Get("me")
     @UseGuards(JwtAuthGuard)
-    async getMe(@Req() req: RequestWithUser): Promise<User> {
-        const user = await this.usersService.findOne(req.user.id);
+    async getMe(@Req() req: RequestWithUser, @Query() query: PaginationQueryDto) {
+        const user = await this.usersService.findOne(req.user.id, query);
         if (!user) {
             throw new NotFoundException("Користувач не знайдений");
         }
@@ -53,8 +55,8 @@ export class UsersController {
     }
 
     @Get(":id")
-    findOne(@Param("id") id: string): Promise<User | null> {
-        return this.usersService.findOne(id);
+    findOne(@Param("id") id: string, @Query() query: PaginationQueryDto) {
+        return this.usersService.findOne(id, query);
     }
 
     @Put(":id")
@@ -74,13 +76,13 @@ export class UsersController {
 
     @UseGuards(JwtAuthGuard)
     @Get("me/career")
-    getMyCareer(@Req() req: RequestWithUser) {
-        return this.usersService.getUserCareer(req.user.id);
+    getMyCareer(@Req() req: RequestWithUser, @Query() query: GetUserCareerDto) {
+        return this.usersService.getUserCareer(req.user.id, query);
     }
 
     @Get(":id/career")
-    getUserCareer(@Param("id") id: string) {
-        return this.usersService.getUserCareer(id);
+    getUserCareer(@Param("id") id: string, @Query() query: GetUserCareerDto) {
+        return this.usersService.getUserCareer(id, query);
     }
 
     @Patch("organizer/resubmit")

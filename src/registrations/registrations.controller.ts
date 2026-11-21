@@ -8,10 +8,13 @@ import {
     Req,
     Patch,
     BadRequestException,
+    Query,
 } from "@nestjs/common";
 import { RegistrationsService } from "./registrations.service";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { RequestWithUser } from "src/users/types/user";
+import { GetTeamApplicationsDto } from "./dto/get-team-applications.dto";
+import { GetTournamentApplicationsDto } from "./dto/get-tournament-applications.dto";
 
 @Controller("registrations")
 export class RegistrationsController {
@@ -28,8 +31,11 @@ export class RegistrationsController {
     }
 
     @Get("tournament/:tournamentId")
-    async getApps(@Param("tournamentId") tournamentId: string) {
-        return this.regService.getTournamentApplications(tournamentId);
+    async getApps(
+        @Param("tournamentId") tournamentId: string,
+        @Query() query: GetTournamentApplicationsDto,
+    ) {
+        return this.regService.getTournamentApplications(tournamentId, query);
     }
 
     @UseGuards(JwtAuthGuard)
@@ -47,7 +53,10 @@ export class RegistrationsController {
     }
 
     @Get("team/:teamId")
-    async getTeamApps(@Param("teamId") teamId: string) {
-        return this.regService.getTeamApplications(teamId);
+    async getTeamApps(
+        @Param("teamId") teamId: string,
+        @Query() query: GetTeamApplicationsDto,
+    ) {
+        return this.regService.getTeamApplications(teamId, query);
     }
 }

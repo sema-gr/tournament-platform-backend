@@ -7,6 +7,8 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { GetTeamApplicationsDto } from "./dto/get-team-applications.dto";
+import { GetTournamentApplicationsDto } from "./dto/get-tournament-applications.dto";
 
 @Injectable()
 export class RegistrationsService {
@@ -91,11 +93,38 @@ export class RegistrationsService {
         return registration;
     }
 
-    async getTournamentApplications(tournamentId: string) {
-        return this.prisma.registration.findMany({
-            where: { tournamentId },
-            include: { team: true },
-        });
+    async getTournamentApplications(
+        tournamentId: string,
+        query?: GetTournamentApplicationsDto,
+    ) {
+        const parsedPage = Number(query?.page);
+        const parsedLimit = Number(query?.limit);
+        const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 5;
+        const skip = (page - 1) * limit;
+
+        const where = { tournamentId };
+
+        const [total, data] = await this.prisma.$transaction([
+            this.prisma.registration.count({ where }),
+            this.prisma.registration.findMany({
+                where,
+                skip,
+                take: limit,
+                include: { team: true },
+                orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+            }),
+        ]);
+
+        return {
+            data,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
     }
 
     async updateStatus(
@@ -155,15 +184,38 @@ export class RegistrationsService {
         return updated;
     }
 
-    async getTeamApplications(teamId: string) {
-        return this.prisma.registration.findMany({
-            where: { teamId },
-            include: {
-                tournament: {
-                    select: { title: true },
+    async getTeamApplications(teamId: string, query?: GetTeamApplicationsDto) {
+        const parsedPage = Number(query?.page);
+        const parsedLimit = Number(query?.limit);
+        const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 5;
+        const skip = (page - 1) * limit;
+
+        const where = { teamId };
+
+        const [total, data] = await this.prisma.$transaction([
+            this.prisma.registration.count({ where }),
+            this.prisma.registration.findMany({
+                where,
+                skip,
+                take: limit,
+                include: {
+                    tournament: {
+                        select: { title: true },
+                    },
                 },
+                orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+            }),
+        ]);
+
+        return {
+            data,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
             },
-            orderBy: { createdAt: "desc" },
-        });
+        };
     }
 }

@@ -17,7 +17,13 @@
         "test:watch": "jest --watch",
         "test:cov": "jest --coverage",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-        "test:e2e": "jest --config ./test/jest-e2e.json"
+        "test:e2e": "jest --config ./test/jest-e2e.json",
+        "seed": "ts-node prisma/seed.ts",
+        "seed:categories": "ts-node prisma/seeds/categories.seed.ts",
+        "seed:users": "ts-node prisma/seeds/users.seed.ts",
+        "seed:teams": "ts-node prisma/seeds/teams.seed.ts",
+        "seed:tournaments": "ts-node prisma/seeds/tournaments.seed.ts",
+        "seed:brackets": "ts-node prisma/seeds/bracket-showcase.seed.ts"
     },
     "dependencies": {
         "@nestjs/common": "^11.0.1",

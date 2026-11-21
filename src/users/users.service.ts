@@ -1,6 +1,8 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateUserDto } from "./dto/createUser.dto";
+import { GetUserCareerDto } from "./dto/get-user-career.dto";
+import { PaginationQueryDto } from "./dto/pagination-query.dto";
 import { User } from "./types";
 import { Prisma } from "@prisma/client";
 import { EventEmitter2 } from "@nestjs/event-emitter";
@@ -54,27 +56,51 @@ export class UsersService {
         return this.prisma.user.findMany();
     }
 
-    async findOne(id: string) {
+    async findOne(id: string, query?: PaginationQueryDto) {
+        const parsedPage = Number(query?.page);
+        const parsedLimit = Number(query?.limit);
+        const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 5;
+        const skip = (page - 1) * limit;
+
         const user = await this.prisma.user.findUnique({
             where: { id },
             include: {
                 stats: true,
                 ownedTeams: true,
                 tournaments: {
+                    skip,
+                    take: limit,
                     include: {
                         category: true,
                         _count: {
                             select: { registrations: true },
                         },
                     },
-                    orderBy: { createdAt: "desc" },
+                    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
                 },
                 _count: {
                     select: { tournaments: true },
                 },
             },
         });
-        return user;
+
+        if (!user) return null;
+
+        const total = user._count.tournaments;
+
+        return {
+            ...user,
+            tournaments: {
+                data: user.tournaments,
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit),
+                },
+            },
+        };
     }
 
     async searchPlayers(query: string) {
@@ -111,7 +137,13 @@ export class UsersService {
         });
     }
 
-    async getUserCareer(userId: string) {
+    async getUserCareer(userId: string, query?: GetUserCareerDto) {
+        const parsedPage = Number(query?.page);
+        const parsedLimit = Number(query?.limit);
+        const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 5;
+        const skip = (page - 1) * limit;
+
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             select: {
@@ -143,23 +175,37 @@ export class UsersService {
 
         const teamIds = user.teams.map(t => t.teamId);
 
-        const tournamentHistory = await this.prisma.registration.findMany({
-            where: {
-                teamId: { in: teamIds },
-                status: "APPROVED",
-            },
-            include: {
-                tournament: {
-                    select: {
-                        id: true,
-                        title: true,
-                        status: true,
-                        category: { select: { name: true } },
-                    },
-                },
-                team: { select: { name: true } },
-            },
-        });
+        const historyWhere: Prisma.RegistrationWhereInput = {
+            teamId: { in: teamIds },
+            status: "APPROVED",
+        };
+
+        const [total, tournamentHistory] =
+            teamIds.length > 0
+                ? await this.prisma.$transaction([
+                      this.prisma.registration.count({ where: historyWhere }),
+                      this.prisma.registration.findMany({
+                          where: historyWhere,
+                          skip,
+                          take: limit,
+                          orderBy: [
+                              { tournament: { startDate: "desc" } },
+                              { createdAt: "desc" },
+                          ],
+                          include: {
+                              tournament: {
+                                  select: {
+                                      id: true,
+                                      title: true,
+                                      status: true,
+                                      category: { select: { name: true } },
+                                  },
+                              },
+                              team: { select: { name: true } },
+                          },
+                      }),
+                  ])
+                : [0, []];
 
         return {
             profile: {
@@ -173,13 +219,21 @@ export class UsersService {
             },
             statistics: user.stats,
             teams: user.teams.map(t => t.team),
-            history: tournamentHistory.map(h => ({
-                tournamentId: h.tournamentId,
-                tournamentTitle: h.tournament.title,
-                category: h.tournament.category.name,
-                teamName: h.team.name,
-                status: h.tournament.status,
-            })),
+            history: {
+                data: tournamentHistory.map(h => ({
+                    tournamentId: h.tournamentId,
+                    tournamentTitle: h.tournament.title,
+                    category: h.tournament.category.name,
+                    teamName: h.team.name,
+                    status: h.tournament.status,
+                })),
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit),
+                },
+            },
         };
     }
 
